@@ -1,5 +1,5 @@
 # video tool
 
-###зависемости
+### зависемости
 - python3
 - ffmpeg
