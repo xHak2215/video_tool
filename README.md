@@ -1,1 +1,5 @@
-# video_tool
+# video tool
+
+###зависемости
+- python3
+- ffmpeg
