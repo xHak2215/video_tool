@@ -1,9 +1,10 @@
 import os
 import sys
 import numpy as np
+import logging
+import threading
 
 from moviepy import VideoFileClip, CompositeVideoClip
-from PIL import Image, ImageDraw, ImageFont
 
 if len(sys.argv) > 1:
     file = sys.argv[1]
@@ -21,6 +22,7 @@ ZSV [FAILE] [COMMAND] [OPTIONS]
     exit(0)
 
 bitrate=None
+logging.getLogger("moviepy").setLevel(logging.ERROR)
 
 in_video_path = os.path.join(os.getcwd(), file)
 filesize = os.path.getsize(in_video_path)  # байты
@@ -40,9 +42,10 @@ if command == "optimization" or command == "opt":
     avg_bitrate_bps = (filesize * 8) / duration
 
     audio = clip.audio
-    clip.without_audio()
-    audio.with_duration(clip.duration)
-    clip.with_audio(audio)
+    if audio:
+        clip.without_audio()
+        audio.with_duration(clip.duration)
+        clip.with_audio(audio)
 
     print(f"width:{width}, height:{height}. fps:{fps}")
 
@@ -57,6 +60,11 @@ elif command == "info":
     exit()
 
 
-file = CompositeVideoClip([clip])
-file.write_videofile("output.mp4",
-                    fps=fps)
+def compilation_video():
+    file = CompositeVideoClip([clip])
+    file.write_videofile("output.mp4",
+                        fps=fps)
+
+t1 = threading.Thread(target=compilation_video)
+#t2 = threading.Thread(target=func2, args=(...,))
+t1.start()
