@@ -3,6 +3,7 @@ import sys
 import numpy as np
 import logging
 import threading
+import time
 
 from moviepy import VideoFileClip, CompositeVideoClip
 
@@ -15,6 +16,7 @@ else:
 if "--help" in sys.argv or "-help" in sys.argv or "-h" in sys.argv:
     print(f"""
 ZSV [FAILE] [COMMAND] [OPTIONS]
+command:
  \33[34m-\33[0m info - информация об видео
  \33[34m-\33[0m optimization (opt) - сжение видео в %
 
@@ -47,7 +49,7 @@ if command == "optimization" or command == "opt":
         audio.with_duration(clip.duration)
         clip.with_audio(audio)
 
-    print(f"width:{width}, height:{height}. fps:{fps}")
+    print(f"info:\nwidth:{width}\nheight:{height}\nfps:{fps}")
 
     clip.with_fps(fps)
     clip = clip.resized(width=width, height=height)
@@ -59,12 +61,33 @@ elif command == "info":
     print(f"FPS: {round(clip.fps)}")
     exit()
 
+loading=True
 
 def compilation_video():
+    global loading
     file = CompositeVideoClip([clip])
     file.write_videofile("output.mp4",
-                        fps=fps)
+                        fps=fps, logger=None)
+    loading=False
 
-t1 = threading.Thread(target=compilation_video)
-#t2 = threading.Thread(target=func2, args=(...,))
+def progres_barr():
+    timer=time.time()
+    while loading:
+        print(f"|               {round(time.time()-timer, 1)}s", end="\r")
+        time.sleep(0.5)
+        print(f"/               {round(time.time()-timer, 1)}s", end="\r")
+        time.sleep(0.5)
+        print(f"—               {round(time.time()-timer, 1)}s", end="\r")
+        time.sleep(0.5)
+        print(f"\\               {round(time.time()-timer, 1)}s", end="\r")
+        time.sleep(0.5)
+    print("\33[32mcompleted!\33[0m")
+
+t1 = threading.Thread(target=compilation_video, daemon=True)
+t2 = threading.Thread(target=progres_barr, daemon=True)
+
 t1.start()
+t2.start()
+
+t1.join()
+t2.join()
