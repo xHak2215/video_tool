@@ -6,6 +6,7 @@ import threading
 import time
 
 from moviepy import VideoFileClip, CompositeVideoClip
+import subprocess
 
 if len(sys.argv) > 1:
     file = sys.argv[1]
@@ -25,6 +26,12 @@ command:
 
 bitrate=None
 logging.getLogger("moviepy").setLevel(logging.ERROR)
+
+if os.name == "nt":
+    ffmpeg_path=os.path.join(os.path.dirname(os.path.abspath(__file__)), 'bin', 'ffmpeg', 'ffmpeg.exe')
+    os.environ["IMAGEIO_FFMPEG_EXE"] = ffmpeg_path
+else:
+    ffmpeg_path="ffprobe"
 
 in_video_path = os.path.join(os.getcwd(), file)
 filesize = os.path.getsize(in_video_path)  # байты
@@ -49,16 +56,32 @@ if command == "optimization" or command == "opt":
         audio.with_duration(clip.duration)
         clip.with_audio(audio)
 
-    print(f"info:\nwidth:{width}\nheight:{height}\nfps:{fps}")
+    print(f"info:  width:{width} height:{height} fps:{fps}")
 
     clip.with_fps(fps)
     clip = clip.resized(width=width, height=height)
 
 elif command == "info":
+    #получение кодека
+    relust=subprocess.run([ffmpeg_path, '-v', 'error', '-select_streams', 'v:0', '-show_entries', 'stream=codec_name', '-of', 'default=noprint_wrappers=1:nokey=1', in_video_path], capture_output=True, text=True)
+    # удобный вывод веса
+    if filesize//1_073_741_824 > 0:
+        vsize=f"{round(filesize/1_073_741_824, 1)} ГБ"
+
+    elif filesize//1_048_576 > 0:
+        vsize=f"{round(filesize/1_048_576, 1)} МБ"
+
+    elif filesize//1024 > 0:
+        vsize=f"{round(filesize/1024, 1)} КБ"
+
+    else:
+        vsize=f"{filesize} Байт"
+
     print(f"Длительность: {clip.duration} секунд")
-    print(f"разширение: {clip.size}")
-    print(f"вес: {filesize} байт")
+    print(f"разришение: {clip.size[0]}X{clip.size[1]}")
+    print(f"вес: {vsize}")
     print(f"FPS: {round(clip.fps)}")
+    print(f"кодек: {relust.stdout}")
     exit()
 
 loading=True
