@@ -4,6 +4,7 @@ import numpy as np
 import logging
 import threading
 import time
+import shutil
 
 from moviepy import VideoFileClip, CompositeVideoClip
 import subprocess
@@ -28,8 +29,9 @@ bitrate=None
 logging.getLogger("moviepy").setLevel(logging.ERROR)
 
 if os.name == "nt":
-    ffmpeg_path=os.path.join(os.path.dirname(os.path.abspath(__file__)), 'bin', 'ffmpeg', 'ffmpeg.exe')
-    os.environ["IMAGEIO_FFMPEG_EXE"] = ffmpeg_path
+    if not shutil.which("ffmpeg"):
+        ffmpeg_path=os.path.join(os.path.dirname(os.path.abspath(__file__)), 'bin', 'ffmpeg', 'ffmpeg.exe')
+        os.environ["IMAGEIO_FFMPEG_EXE"] = ffmpeg_path
 else:
     ffmpeg_path="ffprobe"
 
