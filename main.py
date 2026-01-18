@@ -5,6 +5,7 @@ import logging
 import threading
 import time
 import shutil
+import traceback
 
 from moviepy import VideoFileClip, CompositeVideoClip
 import subprocess
@@ -115,38 +116,42 @@ elif command == "metadata":
         if arg[1]=="read":
             print(meta_data_read())
             exit()
-        elif '=' in arg[1]:
-            if arg[1].split("=")[0] in ['title', 'author', 'album_artist', 'composer', 'album', 'year', 'encoding_tool', 'comment', 'genre', 'copyright', 'grouping', 'lyrics', 'description', 'synopsis', 'show', 'episode_id', 'network', 'keywords', 'episode_sort', 'season_number', 'media_type', 'hd_video', 'gapless_playback', 'compilation', 'track']: 
+        elif '=' in arg[1] and arg[1].split("=")[0] in ['title', 'author', 'album_artist', 'composer', 'album', 'year', 'encoding_tool', 'comment', 'genre', 'copyright', 'grouping', 'lyrics', 'description', 'synopsis', 'show', 'episode_id', 'network', 'keywords', 'episode_sort', 'season_number', 'media_type', 'hd_video', 'gapless_playback', 'compilation', 'track']: 
                 w_data=arg[1]
-            else:
-                print("\33[31mERROR не коректный аргумент\33[0m")
-                exit(1)
+        else:
+            print(f"\33[31mERROR не коректный аргумента ({arg[1]} не существует или он не коректен)\33[0m")
+            exit(1)
 
         subprocess.run([ffmpeg_path, '-hide_banner', '-loglevel', 'error', '-y', "-i", in_video_path, '-metadata', w_data, save_file_name], capture_output=True)
     else:
         print(meta_data_read())
-    exit()
+    exit(0)
 
 
 loading=True
 
 def compilation_video():
     global loading
-    file = CompositeVideoClip([clip])
-    file.write_videofile(save_file_name,
+    try:
+        file = CompositeVideoClip([clip])
+        file.write_videofile(save_file_name,
                         fps=fps, logger=None, threads=5)
+        subprocess.run([ffmpeg_path, '-i', save_file_name, '-i', in_video_path, '-map', '0', '-map_metadata', '1', '-y', '-c', 'copy', save_file_name])
+    except Exception:
+        loading=False
+        traceback.print_exc()    
     loading=False
 
 def progres_barr():
     timer=time.time()
     while loading:
-        print(f"|               {round(time.time()-timer, 1)}s", end="\r")
+        print(f"|                {round(time.time()-timer, 1)}s", end="\r")
         time.sleep(0.5)
-        print(f"/               {round(time.time()-timer, 1)}s", end="\r")
+        print(f"/                {round(time.time()-timer, 1)}s", end="\r")
         time.sleep(0.5)
-        print(f"—               {round(time.time()-timer, 1)}s", end="\r")
+        print(f"—                {round(time.time()-timer, 1)}s", end="\r")
         time.sleep(0.5)
-        print(f"\\               {round(time.time()-timer, 1)}s", end="\r")
+        print(f"\\                {round(time.time()-timer, 1)}s", end="\r")
         time.sleep(0.5)
     print("\33[32mcompleted!\33[0m")
 
