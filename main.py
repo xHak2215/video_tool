@@ -10,6 +10,7 @@ import traceback
 from moviepy import VideoFileClip, CompositeVideoClip, CompositeAudioClip
 import subprocess
 
+
 if len(sys.argv) > 1:
     file = sys.argv[1]
     arg = sys.argv[2:]
@@ -25,6 +26,7 @@ command:
  \33[34m-\33[0m without_audio - удаление аудио   
  \33[34m-\33[0m metadata - работа с мета данными       
  \33[34m-\33[0m to - преобразование формата и переименование(опционально)
+ \33[34m-\33[0m extrude_audio - извлечение аудио
           
 arg:
  \33[34m-\33[0m file_name - имя нового сохранаяемого файла, применение:  file_name=new_video.mp4. по умолчанию output.mp4
@@ -34,6 +36,7 @@ arg:
 bitrate=None
 
 logging.getLogger("moviepy").setLevel(logging.ERROR)
+logger = logging.getLogger(__name__)
 
 if os.name == "nt":
     if not shutil.which("ffmpeg"): # применимо лиш для релиза под винду
@@ -71,6 +74,16 @@ def compilation_video():
         traceback.print_exc()    
     loading=False
 
+def audio_comfress(clip:VideoFileClip, file_name:str):
+    global loading
+    try:
+        audioclip = CompositeAudioClip([clip.audio])
+        audioclip.write_audiofile(file_name, logger=None)
+    except Exception:
+        loading=False
+        traceback.print_exc()    
+    loading=False
+
 def progres_barr():
     timer=time.time()
     while loading:
@@ -83,6 +96,9 @@ def progres_barr():
         print(f"\\                {round(time.time()-timer, 1)}s", end="\r")
         time.sleep(0.5)
     print("\33[32mcompleted!\33[0m")
+
+compilation = threading.Thread(target=compilation_video, daemon=True)
+progres_barr_p = threading.Thread(target=progres_barr, daemon=True)
 
 if len(arg)>2:
     if arg[2].startswith("file_name"):
@@ -164,9 +180,13 @@ elif command == "to":
 
 elif command == "extrude_audio":
     if clip.audio:
-        audioclip = CompositeAudioClip([clip.audio])
         if len(arg)>1:
-            audioclip.write_audiofile(arg[1], logger=None, threads=5)
+            loading=True
+            audio_comfress_p = threading.Thread(target=audio_comfress, args=(clip, arg[1]), daemon=True)
+            audio_comfress_p.start()
+            progres_barr_p.start()
+            audio_comfress_p.join()
+            progres_barr_p.join()
         else:
             print(f"\33[31mERROR нет аргумента\33[0m")
     else:
@@ -176,11 +196,8 @@ elif command == "extrude_audio":
 loading=True
 
 
-t1 = threading.Thread(target=compilation_video, daemon=True)
-t2 = threading.Thread(target=progres_barr, daemon=True)
+compilation.start()
+progres_barr_p.start()
 
-t1.start()
-t2.start()
-
-t1.join()
-t2.join()
+compilation.join()
+progres_barr_p.join()
