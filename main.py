@@ -7,7 +7,7 @@ import time
 import shutil
 import traceback
 
-from moviepy import VideoFileClip, CompositeVideoClip
+from moviepy import VideoFileClip, CompositeVideoClip, CompositeAudioClip
 import subprocess
 
 if len(sys.argv) > 1:
@@ -24,7 +24,8 @@ command:
  \33[34m-\33[0m optimization (opt) - сжение видео в %
  \33[34m-\33[0m without_audio - удаление аудио   
  \33[34m-\33[0m metadata - работа с мета данными       
-
+ \33[34m-\33[0m to - преобразование формата и переименование(опционально)
+          
 arg:
  \33[34m-\33[0m file_name - имя нового сохранаяемого файла, применение:  file_name=new_video.mp4. по умолчанию output.mp4
 """)
@@ -57,6 +58,31 @@ def meta_data_read()->str:
         data=f.read()
     os.remove(f'temp_({tt}).tmp')
     return data
+
+def compilation_video():
+    global loading
+    try:
+        file = CompositeVideoClip([clip])
+        file.write_videofile(save_file_name,
+                        fps=fps, logger=None, threads=5)
+        subprocess.run([ffmpeg_path, '-hide_banner', '-loglevel', 'error', '-i', save_file_name, '-i', in_video_path, '-map', '0', '-map_metadata', '1', '-y', '-c', 'copy', save_file_name])
+    except Exception:
+        loading=False
+        traceback.print_exc()    
+    loading=False
+
+def progres_barr():
+    timer=time.time()
+    while loading:
+        print(f"|                {round(time.time()-timer, 1)}s", end="\r")
+        time.sleep(0.5)
+        print(f"/                {round(time.time()-timer, 1)}s", end="\r")
+        time.sleep(0.5)
+        print(f"—                {round(time.time()-timer, 1)}s", end="\r")
+        time.sleep(0.5)
+        print(f"\\                {round(time.time()-timer, 1)}s", end="\r")
+        time.sleep(0.5)
+    print("\33[32mcompleted!\33[0m")
 
 if len(arg)>2:
     if arg[2].startswith("file_name"):
@@ -127,33 +153,28 @@ elif command == "metadata":
         print(meta_data_read())
     exit(0)
 
+elif command == "to":
+    if len(arg)>0:
+        if '.' in arg[1]: 
+            save_file_name = arg[1]
+        else:
+            print(f"\33[31mERROR в новом имени нет расширения!\33[0m")
+    else:
+        print(f"\33[31mERROR нет аргумента\33[0m")
+
+elif command == "extrude_audio":
+    if clip.audio:
+        audioclip = CompositeAudioClip([clip.audio])
+        if len(arg)>1:
+            audioclip.write_audiofile(arg[1], logger=None, threads=5)
+        else:
+            print(f"\33[31mERROR нет аргумента\33[0m")
+    else:
+        print("похоже в видео нет аудио дорожек")
+    exit(0)
 
 loading=True
 
-def compilation_video():
-    global loading
-    try:
-        file = CompositeVideoClip([clip])
-        file.write_videofile(save_file_name,
-                        fps=fps, logger=None, threads=5)
-        subprocess.run([ffmpeg_path, '-i', save_file_name, '-i', in_video_path, '-map', '0', '-map_metadata', '1', '-y', '-c', 'copy', save_file_name])
-    except Exception:
-        loading=False
-        traceback.print_exc()    
-    loading=False
-
-def progres_barr():
-    timer=time.time()
-    while loading:
-        print(f"|                {round(time.time()-timer, 1)}s", end="\r")
-        time.sleep(0.5)
-        print(f"/                {round(time.time()-timer, 1)}s", end="\r")
-        time.sleep(0.5)
-        print(f"—                {round(time.time()-timer, 1)}s", end="\r")
-        time.sleep(0.5)
-        print(f"\\                {round(time.time()-timer, 1)}s", end="\r")
-        time.sleep(0.5)
-    print("\33[32mcompleted!\33[0m")
 
 t1 = threading.Thread(target=compilation_video, daemon=True)
 t2 = threading.Thread(target=progres_barr, daemon=True)
