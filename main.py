@@ -6,8 +6,9 @@ import threading
 import time
 import shutil
 import traceback
+import json
 
-from moviepy import VideoFileClip, CompositeVideoClip, CompositeAudioClip
+from moviepy import VideoFileClip, CompositeVideoClip, CompositeAudioClip, AudioFileClip
 import subprocess
 
 
@@ -47,18 +48,35 @@ if os.name == "nt":
 else:
     ffmpeg_path="ffmpeg"
 
-in_video_path = os.path.join(os.getcwd(), file)
-filesize = os.path.getsize(in_video_path)  # байты
-save_file_name="output.mp4"
 
-clip = VideoFileClip(in_video_path)
+def is_audio_or_video(path:str)->None|str:
+    """определяет видео это или же аудио
 
-fps = clip.fps
+    Args:
+        path (str): название файла
 
-command = arg[0].lower().replace(' ', '')
+    Returns:
+        None|str: если `None` то не удалось прочитать если `unknown` то не известный файл если `video` то видео если `audio` то аудио
+    """
+    cmd = [
+        "ffprobe", "-v", "error",
+        "-show_streams", "-of", "json", path
+    ]
+    proc = subprocess.run(cmd, capture_output=True, text=True)
+    if proc.returncode != 0:
+        return None  # не удалось прочитать файл
+    info = json.loads(proc.stdout)
+    streams = info.get("streams", [])
+    has_audio = any(s.get("codec_type") == "audio" for s in streams)
+    has_video = any(s.get("codec_type") == "video" for s in streams)
+    if has_video:
+        return "video"
+    if has_audio:
+        return "audio"
+    return "unknown"
 
 def meta_data_read()->str:
-    subprocess.run([ffmpeg_path, '-hide_banner', '-loglevel', 'error', "-i", in_video_path, '-f', 'ffmetadata', f'temp_({tt}).tmp'])
+    subprocess.run([ffmpeg_path, '-hide_banner', '-loglevel', 'error', "-i", in_file_path, '-f', 'ffmetadata', f'temp_({tt}).tmp'])
     with open(f'temp_({tt}).tmp', 'r') as f:
         data=f.read()
     os.remove(f'temp_({tt}).tmp')
@@ -67,10 +85,11 @@ def meta_data_read()->str:
 def compilation_video():
     global loading
     try:
-        file = CompositeVideoClip([clip])
-        file.write_videofile(save_file_name,
-                        fps=fps, logger=None, threads=5)
-        subprocess.run([ffmpeg_path, '-hide_banner', '-loglevel', 'error', '-i', save_file_name, '-i', in_video_path, '-map', '0', '-map_metadata', '1', '-y', '-c', 'copy', save_file_name])
+        if clip:
+            file = CompositeVideoClip([clip])
+            file.write_videofile(save_file_name,
+                            fps=fps, logger=None, threads=5)
+            subprocess.run([ffmpeg_path, '-hide_banner', '-loglevel', 'error', '-i', save_file_name, '-i', in_file_path, '-map', '0', '-map_metadata', '1', '-y', '-c', 'copy', save_file_name])
     except Exception:
         loading=False
         traceback.print_exc()    
@@ -79,8 +98,9 @@ def compilation_video():
 def audio_comfress(clip:VideoFileClip, file_name:str):
     global loading
     try:
-        audioclip = CompositeAudioClip([clip.audio])
-        audioclip.write_audiofile(file_name, logger=None)
+        if clip:
+            audioclip = CompositeAudioClip([clip.audio])
+            audioclip.write_audiofile(file_name, logger=None)
     except Exception:
         loading=False
         traceback.print_exc()    
@@ -102,13 +122,32 @@ def progres_barr():
 compilation = threading.Thread(target=compilation_video, daemon=True)
 progres_barr_p = threading.Thread(target=progres_barr, daemon=True)
 
+
+fps=1
+
+in_file_path = os.path.join(os.getcwd(), file)
+filesize = os.path.getsize(in_file_path)  # байты
+save_file_name = f"output{os.path.splitext(in_file_path)[1]}"
+
+file_type=is_audio_or_video(in_file_path)
+
+clip=None
+
+if file_type=="video":
+    clip = VideoFileClip(in_file_path)
+    fps = clip.fps
+
+
+command = arg[0].lower().replace(' ', '')
+
+
 if len(arg)>2:
     if arg[2].startswith("file_name"):
         name = arg[2].split("=")
         if len(name)>1:
             save_file_name=name[1]
 
-if command == "optimization" or command == "opt":
+if clip and command == "optimization" or command == "opt":
     procent=int(arg[1].replace('%', '')) 
     width = round(clip.size[0]/100 * (100 - procent))
     height = round(clip.size[1]/100 * (100 - procent))
@@ -127,9 +166,9 @@ if command == "optimization" or command == "opt":
     clip.with_fps(fps)
     clip = clip.resized(width=width, height=height)
 
-elif command == "info":
+elif clip and command == "info":
     #получение кодека
-    relust=subprocess.run([ffmpeg_path, '-hide_banner', '-loglevel', 'error', '-y', '-v', 'error', '-select_streams', 'v:0', '-show_entries', 'stream=codec_name', '-of', 'default=noprint_wrappers=1:nokey=1', in_video_path], capture_output=True, text=True)
+    relust=subprocess.run([ffmpeg_path, '-hide_banner', '-loglevel', 'error', '-y', '-v', 'error', '-select_streams', 'v:0', '-show_entries', 'stream=codec_name', '-of', 'default=noprint_wrappers=1:nokey=1', in_file_path], capture_output=True, text=True)
     # удобный вывод веса
     if filesize//1_073_741_824 > 0:
         vsize=f"{round(filesize/1_073_741_824, 1)} ГБ"
@@ -151,7 +190,7 @@ elif command == "info":
     exit(0)
 
 elif command == "without_audio":
-    subprocess.run([ffmpeg_path, '-hide_banner', '-loglevel', 'error', '-y', "-i", in_video_path, "-c:v", "copy", "-an", save_file_name], check=True)
+    subprocess.run([ffmpeg_path, '-hide_banner', '-loglevel', 'error', '-y', "-i", in_file_path, "-c:v", "copy", "-an", save_file_name], check=True)
     exit(0)
 
 elif command == "metadata":
@@ -160,16 +199,17 @@ elif command == "metadata":
         if arg[1]=="read":
             print(meta_data_read())
             exit()
-        elif '=' in arg[1] and arg[1].split("=")[0] in ['title', 'author', 'album_artist', 'composer', 'album', 'year', 'encoding_tool', 'comment', 'genre', 'copyright', 'grouping', 'lyrics', 'description', 'synopsis', 'show', 'episode_id', 'network', 'keywords', 'episode_sort', 'season_number', 'media_type', 'hd_video', 'gapless_playback', 'compilation', 'track']: 
+        elif '=' in arg[1] and arg[1].split("=")[0] in ['title', 'artist', 'author', 'album_artist', 'composer', 'album', 'year', 'encoding_tool', 'comment', 'genre', 'copyright', 'grouping', 'lyrics', 'description', 'synopsis', 'show', 'episode_id', 'network', 'keywords', 'episode_sort', 'season_number', 'media_type', 'hd_video', 'gapless_playback', 'compilation', 'track']: 
                 w_data=arg[1]
         else:
             print(f"\33[31mERROR не коректный аргумента ({arg[1]} не существует или он не коректен)\33[0m")
             exit(1)
-
-        subprocess.run([ffmpeg_path, '-hide_banner', '-loglevel', 'error', '-y', "-i", in_video_path, '-metadata', w_data, save_file_name], capture_output=True)
+        
+        subprocess.run([ffmpeg_path, '-fflags', '+genpts', '-hide_banner', '-loglevel', 'error', '-y', "-i", in_file_path, '-c', 'copy', '-metadata', w_data, f"temp_{tt}{os.path.splitext(in_file_path)[1]}"], capture_output=True)
+        os.replace(f"temp_{tt}{os.path.splitext(in_file_path)[1]}", save_file_name)
     else:
         print(meta_data_read())
-    exit(0)
+    sys.exit()
 
 elif command == "to":
     if len(arg)>0:
@@ -193,6 +233,10 @@ elif command == "extrude_audio":
             print(f"\33[31mERROR нет аргумента\33[0m")
     else:
         print("похоже в видео нет аудио дорожек")
+    exit(0)
+
+else:
+    print(f"такой команды({command}) нет")
     exit(0)
 
 loading=True
