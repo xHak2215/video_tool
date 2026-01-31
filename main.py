@@ -34,7 +34,7 @@ command:
 arg:
  \33[34m-\33[0m file_name - имя нового сохраняемого файла, применение:  file_name=new_video.mp4. по умолчанию output.mp4
 """)
-    exit(0)
+    sys.exit(0)
 
 bitrate=None
 
@@ -192,29 +192,29 @@ elif clip and command == "info":
     print(f"вес: {vsize}")
     print(f"FPS: {round(clip.fps)}")
     print(f"кодек: {relust.stdout}")
-    exit(0)
+    sys.exit(0)
 
 elif command == "without_audio":
     subprocess.run([ffmpeg_path, '-hide_banner', '-loglevel', 'error', '-y', "-i", in_file_path, "-c:v", "copy", "-an", save_file_name], check=True)
-    exit(0)
+    sys.exit(0)
 
 elif command == "metadata":
     tt=time.time()
     if len(arg)>1:
         if arg[1]=="read":
             print(meta_data_read())
-            exit()
+            sys.exit(0)
         elif '=' in arg[1] and arg[1].split("=")[0] in ['title', 'artist', 'author', 'album_artist', 'composer', 'album', 'year', 'encoding_tool', 'comment', 'genre', 'copyright', 'grouping', 'lyrics', 'description', 'synopsis', 'show', 'episode_id', 'network', 'keywords', 'episode_sort', 'season_number', 'media_type', 'hd_video', 'gapless_playback', 'compilation', 'track']: 
                 w_data=arg[1]
         else:
             print(f"\33[31mERROR не коректный аргумента ({arg[1]} не существует или он не коректен)\33[0m")
-            exit(1)
+            sys.exit(1)
         
         subprocess.run([ffmpeg_path, '-fflags', '+genpts', '-hide_banner', '-loglevel', 'error', '-y', "-i", in_file_path, '-c', 'copy', '-metadata', w_data, f"temp_{tt}{os.path.splitext(in_file_path)[1]}"], capture_output=True)
         os.replace(f"temp_{tt}{os.path.splitext(in_file_path)[1]}", save_file_name)
     else:
         print(meta_data_read())
-    exit(0)
+    sys.exit(0)
 
 elif command == "to":
     if len(arg)>0:
@@ -238,7 +238,7 @@ elif clip and command == "extrude_audio":
             print(f"\33[31mERROR нет аргумента\33[0m")
     else:
         print("похоже в видео нет аудио дорожек")
-    exit(0)
+    sys.exit(0)
 
 elif clip and command == "cut":
     if len(arg)>1 and '-' in arg[1]:
@@ -246,13 +246,13 @@ elif clip and command == "cut":
         end = arg[1].split('-')[1]
     else:
         print(f"\33[31mERROR нет аргумента или он не коректен\33[0m")
-        exit(1)
+        sys.exit(1)
 
     clip = clip.subclipped(start, end)
 
 else:
     print(f"такой команды({command}) нет или она не удалетворительна")
-    exit(0)
+    sys.exit(0)
 
 loading=True
 
