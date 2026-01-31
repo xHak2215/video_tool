@@ -1,6 +1,5 @@
 import os
 import sys
-import numpy as np
 import logging
 import threading
 import time
@@ -30,6 +29,7 @@ command:
           1 аргумент после команды это изменяемый порамитер (title, artist, date и т.д) с вносимыми данными. пример: venv/bin/python3 main.py test.mp4 metadata title=test_data
  \33[34m-\33[0m to - преобразование формата и переименование(опционально). 1 аргумент это имя файла с преобразованым фарматом
  \33[34m-\33[0m extrude_audio - извлечение аудио. 1 агумент название сохраняемого аудио файла
+ \33[34m-\33[0m cut - образка видео от-до. пример venv/bin/python3 main.py test.mp4 cut 0:0-0:15
           
 arg:
  \33[34m-\33[0m file_name - имя нового сохраняемого файла, применение:  file_name=new_video.mp4. по умолчанию output.mp4
@@ -86,10 +86,15 @@ def compilation_video():
     global loading
     try:
         if clip:
+            temp =  f'temp_({time.monotonic()}){os.path.splitext(save_file_name)[1]}'
             file = CompositeVideoClip([clip])
-            file.write_videofile(save_file_name,
+            file.write_videofile(temp,
                             fps=fps, logger=None, threads=5)
-            subprocess.run([ffmpeg_path, '-hide_banner', '-loglevel', 'error', '-i', save_file_name, '-i', in_file_path, '-map', '0', '-map_metadata', '1', '-y', '-c', 'copy', save_file_name])
+            
+            subprocess.run([ffmpeg_path, '-hide_banner', '-loglevel', 'error',
+            '-i', temp, '-i', in_file_path, '-map', '0', '-map_metadata', '1', '-y', '-c', 'copy', save_file_name])
+            os.remove(temp)
+
     except Exception:
         loading=False
         traceback.print_exc()    
@@ -133,7 +138,7 @@ file_type=is_audio_or_video(in_file_path)
 
 clip=None
 
-if file_type=="video":
+if file_type == "video":
     clip = VideoFileClip(in_file_path)
     fps = clip.fps
 
@@ -209,7 +214,7 @@ elif command == "metadata":
         os.replace(f"temp_{tt}{os.path.splitext(in_file_path)[1]}", save_file_name)
     else:
         print(meta_data_read())
-    sys.exit()
+    exit(0)
 
 elif command == "to":
     if len(arg)>0:
@@ -220,7 +225,7 @@ elif command == "to":
     else:
         print(f"\33[31mERROR нет аргумента\33[0m")
 
-elif command == "extrude_audio":
+elif clip and command == "extrude_audio":
     if clip.audio:
         if len(arg)>1:
             loading=True
@@ -235,8 +240,18 @@ elif command == "extrude_audio":
         print("похоже в видео нет аудио дорожек")
     exit(0)
 
+elif clip and command == "cut":
+    if len(arg)>1 and '-' in arg[1]:
+        start = arg[1].split('-')[0]
+        end = arg[1].split('-')[1]
+    else:
+        print(f"\33[31mERROR нет аргумента или он не коректен\33[0m")
+        exit(1)
+
+    clip = clip.subclipped(start, end)
+
 else:
-    print(f"такой команды({command}) нет")
+    print(f"такой команды({command}) нет или она не удалетворительна")
     exit(0)
 
 loading=True
