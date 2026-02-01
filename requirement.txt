@@ -1,2 +1,2 @@
 moviepy
-numpy
+imageio_ffmpeg

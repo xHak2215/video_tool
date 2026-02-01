@@ -3,11 +3,11 @@ import sys
 import logging
 import threading
 import time
-import shutil
 import traceback
 import json
 
 from moviepy import VideoFileClip, CompositeVideoClip, CompositeAudioClip, AudioFileClip
+import imageio_ffmpeg as ffmpeg
 import subprocess
 
 
@@ -42,12 +42,15 @@ logging.getLogger("moviepy").setLevel(logging.ERROR)
 logger = logging.getLogger(__name__)
 
 if os.name == "nt":
+    import shutil
     if not shutil.which("ffmpeg"): # применимо лиш для релиза под винду
-        ffmpeg_path=os.path.join(os.path.dirname(os.path.abspath(__file__)), 'bin', 'ffmpeg', 'ffmpeg.exe')
-        os.environ["IMAGEIO_FFMPEG_EXE"] = ffmpeg_path
+        try:
+            ffmpeg_path=ffmpeg.get_ffmpeg_exe()
+            os.environ["IMAGEIO_FFMPEG_EXE"] = ffmpeg_path
+        except RuntimeError:
+            print(f"\33[31mERROR не найден ffmpeg\33[0m")
 else:
-    ffmpeg_path="ffmpeg"
-
+    ffmpeg_path=ffmpeg.get_ffmpeg_exe()
 
 def is_audio_or_video(path:str)->None|str:
     """определяет видео это или же аудио
