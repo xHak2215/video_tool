@@ -5,6 +5,7 @@ import threading
 import time
 import traceback
 import json
+import formats
 
 from moviepy import VideoFileClip, CompositeVideoClip, CompositeAudioClip, AudioFileClip
 import imageio_ffmpeg as ffmpeg
@@ -50,7 +51,7 @@ if os.name == "nt":
         except RuntimeError:
             print(f"\33[31mERROR не найден ffmpeg\33[0m")
 else:
-    ffmpeg_path=ffmpeg.get_ffmpeg_exe()
+    ffmpeg_path = ffmpeg.get_ffmpeg_exe()
 
 def is_audio_or_video(path:str)->None|str:
     """определяет видео это или же аудио
@@ -61,6 +62,8 @@ def is_audio_or_video(path:str)->None|str:
     Returns:
         None|str: если `None` то не удалось прочитать если `unknown` то не известный файл если `video` то видео если `audio` то аудио
     """
+
+    '''
     cmd = [
         "ffprobe", "-v", "error",
         "-show_streams", "-of", "json", path
@@ -77,6 +80,15 @@ def is_audio_or_video(path:str)->None|str:
     if has_audio:
         return "audio"
     return "unknown"
+    '''
+    forma=os.path.splitext(path)[1].replace('.','').lower()
+
+    if forma in formats.video_formats:
+        return  "video"
+    elif forma in formats.audio_formats:
+        return "audio"
+    else: return "unknown"
+
 
 def meta_data_read()->str:
     subprocess.run([ffmpeg_path, '-hide_banner', '-loglevel', 'error', "-i", in_file_path, '-f', 'ffmetadata', f'temp_({tt}).tmp'])
@@ -130,14 +142,13 @@ def progres_barr():
 compilation = threading.Thread(target=compilation_video, daemon=True)
 progres_barr_p = threading.Thread(target=progres_barr, daemon=True)
 
-
 fps=1
 
 in_file_path = os.path.join(os.getcwd(), file)
 filesize = os.path.getsize(in_file_path)  # байты
 save_file_name = f"output{os.path.splitext(in_file_path)[1]}"
 
-file_type=is_audio_or_video(in_file_path)
+file_type = is_audio_or_video(in_file_path)
 
 clip=None
 
@@ -145,9 +156,7 @@ if file_type == "video":
     clip = VideoFileClip(in_file_path)
     fps = clip.fps
 
-
 command = arg[0].lower().replace(' ', '')
-
 
 if len(arg)>2:
     if arg[2].startswith("file_name"):
@@ -160,19 +169,20 @@ if clip and command == "optimization" or command == "opt":
     width = round(clip.size[0]/100 * (100 - procent))
     height = round(clip.size[1]/100 * (100 - procent))
     fps = round((fps/100 * (100 - procent))) + 1
-    duration = clip.duration            # секунды (float)
-    avg_bitrate_bps = (filesize * 8) / duration
+    if clip:
+        duration = clip.duration            # секунды (float)
+        avg_bitrate_bps = (filesize * 8) / duration
 
-    audio = clip.audio
-    if audio:
-        clip.without_audio()
-        audio.with_duration(clip.duration)
-        clip.with_audio(audio)
+        audio = clip.audio
+        if audio:
+            clip.without_audio()
+            audio.with_duration(clip.duration)
+            clip.with_audio(audio)
 
-    print(f"info:  width:{width} height:{height} fps:{fps}")
+        print(f"info:  width:{width} height:{height} fps:{fps}")
 
-    clip.with_fps(fps)
-    clip = clip.resized(width=width, height=height)
+        clip.with_fps(fps)
+        clip = clip.resized(width=width, height=height)
 
 elif clip and command == "info":
     #получение кодека
