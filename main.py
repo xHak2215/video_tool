@@ -129,20 +129,20 @@ def audio_comfress(clip:VideoFileClip, file_name:str):
 def progres_barr():
     timer=time.time()
     while loading:
-        print(f"|                {round(time.time()-timer, 1)}s", end="\r")
+        print(f"\033[01;38;05;46;48;05;232m|\033[0m                {round(time.time()-timer, 1)}s ", end="\r")
         time.sleep(0.5)
-        print(f"/                {round(time.time()-timer, 1)}s", end="\r")
+        print(f"\033[01;38;05;46;48;05;232m/\033[0m                {round(time.time()-timer, 1)}s ", end="\r")
         time.sleep(0.5)
-        print(f"—                {round(time.time()-timer, 1)}s", end="\r")
+        print(f"\033[01;38;05;46;48;05;232m—\033[0m                {round(time.time()-timer, 1)}s ", end="\r")
         time.sleep(0.5)
-        print(f"\\                {round(time.time()-timer, 1)}s", end="\r")
+        print(f"\033[01;38;05;46;48;05;232m\\\033[0m               {round(time.time()-timer, 1)}s ", end="\r")
         time.sleep(0.5)
     print("\33[32mcompleted!\33[0m")
 
 compilation = threading.Thread(target=compilation_video, daemon=True)
 progres_barr_p = threading.Thread(target=progres_barr, daemon=True)
 
-fps=1
+fps=30# по умолчанию 
 
 in_file_path = os.path.join(os.getcwd(), file)
 filesize = os.path.getsize(in_file_path)  # байты
